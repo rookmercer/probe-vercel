@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAllProbes, updateProbeStatus, deleteProbe, getStats } from '../../../../lib/database'
+import { getAllProbes, updateProbeStatus, deleteProbe, getStats } from '../../../../lib/storage'
 
 export async function GET(request: NextRequest) {
   try {
     const allProbes = getAllProbes()
     const stats = getStats()
+    
+    console.log(`🔐 ADMIN REQUEST: Returning ${allProbes.length} total probes, stats:`, stats)
     
     return NextResponse.json({ probes: allProbes, stats })
   } catch (error) {
@@ -19,6 +21,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const { action, id, status } = await request.json()
+    
+    console.log(`🎯 ADMIN ACTION: ${action} for probe ${id}${status ? ` to ${status}` : ''}`)
     
     if (action === 'update_status') {
       if (!id || !status || !['pending', 'approved', 'rejected'].includes(status)) {

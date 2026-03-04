@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getApprovedProbes } from '../../../lib/database'
+import { getApprovedProbes } from '../../../lib/storage'
 
 export async function GET(request: NextRequest) {
   try {
     const approvedProbes = getApprovedProbes()
     
+    console.log(`📋 FRONTEND REQUEST: Returning ${approvedProbes.length} approved probes`)
+    
     // Add cache control headers to ensure fresh data
     return NextResponse.json(
-      { probes: approvedProbes },
+      { 
+        probes: approvedProbes,
+        timestamp: new Date().toISOString(),
+        count: approvedProbes.length
+      },
       {
         headers: {
           'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
