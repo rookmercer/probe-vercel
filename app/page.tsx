@@ -1,12 +1,32 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { supabase, type Probe } from '../lib/supabase'
 
 export default function ProbePage() {
   const [probeText, setProbeText] = useState('')
   const [submitterName, setSubmitterName] = useState('')
   const [showSuccess, setShowSuccess] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [approvedProbes, setApprovedProbes] = useState<Probe[]>([])
+
+  // Load approved probes on component mount
+  useEffect(() => {
+    loadApprovedProbes()
+  }, [])
+
+  const loadApprovedProbes = async () => {
+    const { data } = await supabase
+      .from('probes')
+      .select('*')
+      .eq('status', 'approved')
+      .order('created_at', { ascending: false })
+      .limit(20)
+    
+    if (data) {
+      setApprovedProbes(data)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -36,24 +56,6 @@ export default function ProbePage() {
       setIsSubmitting(false)
     }
   }
-
-  const probes = [
-    {
-      text: "Why do we seek certainty in a universe that seems fundamentally uncertain?",
-      name: "Sarah M.",
-      date: "Mar 2, 2026"
-    },
-    {
-      text: "What if our greatest innovations come from the courage to stand alone with an unpopular truth?",
-      name: "Anonymous",
-      date: "Feb 25, 2026"
-    },
-    {
-      text: "Is questioning everything just another form of certainty?",
-      name: "Michael R.",
-      date: "Feb 12, 2026"
-    }
-  ]
 
   return (
     <div className="container">
@@ -90,11 +92,15 @@ export default function ProbePage() {
       </form>
       
       <div className="probes">
-        {probes.map((probe, index) => (
-          <div key={index} className="probe">
+        {approvedProbes.map((probe) => (
+          <div key={probe.id} className="probe">
             <div className="probe-text">{probe.text}</div>
             <div className="probe-meta">
-              {probe.name} • {probe.date}
+              {probe.name} • {new Date(probe.created_at).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric'
+              })}
             </div>
           </div>
         ))}
