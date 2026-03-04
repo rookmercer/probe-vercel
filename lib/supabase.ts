@@ -7,10 +7,12 @@ export interface Probe {
   updated_at: string
 }
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseUrl = 'https://fwyczhwlgygzebunfojq.supabase.co'
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3eWN6aHdsZ3lnemVidW5mb2pxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2NDE0MDIsImV4cCI6MjA4ODIxNzQwMn0.L6q3b07s3WAXokfvZgKBY0jsgHdKkCKOrtOS-GDbHSE'
 
 async function supabaseRequest(endpoint: string, options: RequestInit = {}) {
+  console.log(`🔗 SUPABASE REQUEST: ${endpoint}`)
+  
   const response = await fetch(`${supabaseUrl}/rest/v1/${endpoint}`, {
     ...options,
     headers: {
@@ -23,17 +25,19 @@ async function supabaseRequest(endpoint: string, options: RequestInit = {}) {
   })
   
   if (!response.ok) {
-    console.error('Supabase error:', response.status, await response.text())
+    const errorText = await response.text()
+    console.error('Supabase error:', response.status, errorText)
     throw new Error(`Supabase request failed: ${response.status}`)
   }
   
-  return response.json()
+  const data = await response.json()
+  console.log(`📊 SUPABASE RESPONSE:`, { endpoint, count: Array.isArray(data) ? data.length : 'not array', data: Array.isArray(data) ? data.map(p => p.id) : data })
+  return data
 }
 
 export async function getAllProbes(): Promise<Probe[]> {
   try {
     const probes = await supabaseRequest('probes?order=created_at.desc')
-    console.log(`📊 SUPABASE: Fetched ${probes.length} total probes`)
     return probes
   } catch (error) {
     console.error('Error fetching all probes:', error)
@@ -44,7 +48,6 @@ export async function getAllProbes(): Promise<Probe[]> {
 export async function getApprovedProbes(): Promise<Probe[]> {
   try {
     const probes = await supabaseRequest('probes?status=eq.approved&order=created_at.desc')
-    console.log(`✅ SUPABASE: Fetched ${probes.length} approved probes`)
     return probes
   } catch (error) {
     console.error('Error fetching approved probes:', error)
@@ -63,7 +66,6 @@ export async function addProbe(text: string, name: string): Promise<Probe> {
       })
     })
     
-    console.log(`➕ SUPABASE: Added probe ${newProbe.id}`)
     return newProbe
   } catch (error) {
     console.error('Error adding probe:', error)
@@ -81,7 +83,6 @@ export async function updateProbeStatus(id: number, status: 'pending' | 'approve
       })
     })
     
-    console.log(`🔄 SUPABASE: Updated probe ${id} to ${status}`)
     return updatedProbe
   } catch (error) {
     console.error('Error updating probe:', error)
@@ -94,8 +95,6 @@ export async function deleteProbe(id: number): Promise<void> {
     await supabaseRequest(`probes?id=eq.${id}`, {
       method: 'DELETE'
     })
-    
-    console.log(`🗑️ SUPABASE: Deleted probe ${id}`)
   } catch (error) {
     console.error('Error deleting probe:', error)
     throw error
