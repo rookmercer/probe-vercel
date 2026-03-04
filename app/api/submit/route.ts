@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { addProbe } from '../../../lib/storage'
+import { addProbe } from '../../../lib/simple-db'
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,16 +21,6 @@ export async function POST(request: NextRequest) {
 
     // Add to storage
     const newProbe = addProbe(text, name || 'Anonymous')
-
-    console.log('✅ NEW PROBE SUBMITTED:', {
-      id: newProbe.id,
-      text: newProbe.text.substring(0, 50) + '...',
-      name: newProbe.name,
-      status: newProbe.status
-    })
-
-    // TODO: Send email notification to Luke
-    console.log('📧 Email notification prepared for luke@lukeburgis.com')
 
     return NextResponse.json({ 
       success: true, 

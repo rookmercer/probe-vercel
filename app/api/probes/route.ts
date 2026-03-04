@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getApprovedProbes } from '../../../lib/storage'
+import { getApprovedProbes } from '../../../lib/simple-db'
 
 export async function GET(request: NextRequest) {
   try {
     const approvedProbes = getApprovedProbes()
     
-    console.log(`📋 FRONTEND REQUEST: Returning ${approvedProbes.length} approved probes`)
-    
-    // Add cache control headers to ensure fresh data
     return NextResponse.json(
       { 
         probes: approvedProbes,
