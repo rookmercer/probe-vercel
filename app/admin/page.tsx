@@ -62,6 +62,7 @@ export default function AdminPage() {
 
   const handleAction = async (id: number, action: 'approve' | 'reject' | 'delete') => {
     if (action === 'delete') {
+      if (!confirm('Delete permanently?')) return
       await supabase.from('probes').delete().eq('id', id)
     } else {
       await supabase
@@ -194,10 +195,6 @@ export default function AdminPage() {
               <button 
                 onClick={() => handleAction(probe.id, 'delete')}
                 className="btn delete"
-                onClick={(e) => {
-                  if (!confirm('Delete permanently?')) e.preventDefault()
-                  else handleAction(probe.id, 'delete')
-                }}
               >
                 🗑 Delete
               </button>
