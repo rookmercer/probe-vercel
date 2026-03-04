@@ -22,7 +22,12 @@ export default function ProbePage() {
 
   const loadApprovedProbes = async () => {
     try {
-      const response = await fetch('/api/probes')
+      const response = await fetch('/api/probes', {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache'
+        }
+      })
       if (response.ok) {
         const data = await response.json()
         setApprovedProbes(data.probes || [])
@@ -66,8 +71,8 @@ export default function ProbePage() {
         // Load approved probes now that they've submitted
         loadApprovedProbes()
         
-        // Hide success message after 8 seconds
-        setTimeout(() => setShowSuccess(false), 8000)
+        // Hide success message after 6 seconds
+        setTimeout(() => setShowSuccess(false), 6000)
       } else {
         setError(result.error || 'Failed to submit probe')
       }
@@ -79,28 +84,14 @@ export default function ProbePage() {
     }
   }
 
-  // Sample probes for when user hasn't submitted yet
-  const sampleProbes = [
-    {
-      text: "Submit your probe to see what other readers have shared...",
-      name: "?",
-      created_at: "2026-03-01"
-    }
-  ]
-
   return (
     <div className="container">
       <h1>Probe</h1>
       
-      {!hasSubmitted && (
-        <div className="unlock-message">
-          <p>💡 <strong>Once you submit your probe, you'll unlock what other readers have probed.</strong></p>
-        </div>
-      )}
-      
       {showSuccess && (
         <div className="success">
-          <strong>🎉 Thank you!</strong> Your probe has been submitted and will be reviewed for publication. You can now see what other readers have probed below.
+          <strong>🎉 Thank you!</strong> Your probe has been submitted and will be reviewed for publication. 
+          You can now see what other readers have probed below.
         </div>
       )}
       
@@ -110,32 +101,46 @@ export default function ProbePage() {
         </div>
       )}
       
-      <form onSubmit={handleSubmit} className="form">
-        <textarea
-          value={probeText}
-          onChange={(e) => setProbeText(e.target.value)}
-          placeholder="Share your probe..."
-          required
-          className="textarea"
-          maxLength={500}
-        />
-        <div className="char-count">{probeText.length}/500</div>
-        <input
-          type="text"
-          value={submitterName}
-          onChange={(e) => setSubmitterName(e.target.value)}
-          placeholder="Your name (optional)"
-          className="input"
-          maxLength={50}
-        />
-        <button 
-          type="submit" 
-          disabled={isSubmitting || !probeText.trim()}
-          className="button"
-        >
-          {isSubmitting ? 'Submitting...' : 'Submit Probe'}
-        </button>
-      </form>
+      {!hasSubmitted ? (
+        <>
+          <div className="unlock-message">
+            <p>💡 <strong>Once you submit your probe, you'll unlock what other readers have probed.</strong></p>
+          </div>
+          
+          <form onSubmit={handleSubmit} className="form">
+            <textarea
+              value={probeText}
+              onChange={(e) => setProbeText(e.target.value)}
+              placeholder="Share your probe..."
+              required
+              className="textarea"
+              maxLength={500}
+            />
+            <div className="char-count">{probeText.length}/500</div>
+            <input
+              type="text"
+              value={submitterName}
+              onChange={(e) => setSubmitterName(e.target.value)}
+              placeholder="Your name (optional)"
+              className="input"
+              maxLength={50}
+            />
+            <button 
+              type="submit" 
+              disabled={isSubmitting || !probeText.trim()}
+              className="button"
+            >
+              {isSubmitting ? 'Submitting...' : 'Submit Probe'}
+            </button>
+          </form>
+        </>
+      ) : (
+        <div className="submitted-state">
+          <div className="submitted-message">
+            <p>✅ You've unlocked the probes! Your submission is being reviewed.</p>
+          </div>
+        </div>
+      )}
       
       <div className="probes">
         <h2>
@@ -145,31 +150,38 @@ export default function ProbePage() {
           }
         </h2>
         
-        {(hasSubmitted ? approvedProbes : sampleProbes).map((probe, index) => (
-          <div key={hasSubmitted ? probe.id : index} className="probe">
-            <div className="probe-text">
-              {hasSubmitted ? probe.text : "Submit your probe to see what other readers have shared..."}
-            </div>
-            <div className="probe-meta">
-              {hasSubmitted ? (
-                <>
+        {hasSubmitted ? (
+          approvedProbes.length > 0 ? (
+            approvedProbes.map((probe) => (
+              <div key={probe.id} className="probe">
+                <div className="probe-text">{probe.text}</div>
+                <div className="probe-meta">
                   {probe.name} • {new Date(probe.created_at).toLocaleDateString('en-US', {
                     month: 'short',
                     day: 'numeric',
                     year: 'numeric'
                   })}
-                </>
-              ) : (
-                "? • Submit to unlock"
-              )}
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="empty-probes">
+              <p>No approved probes yet. Yours might be the first!</p>
             </div>
-          </div>
-        ))}
-        
-        {!hasSubmitted && (
-          <div className="locked-message">
-            <p>🔒 Submit your probe above to see the full collection from other readers of <em>The One and the 99</em>.</p>
-          </div>
+          )
+        ) : (
+          <>
+            <div className="probe locked">
+              <div className="probe-text">
+                Submit your probe to see what other readers have shared...
+              </div>
+              <div className="probe-meta">? • Submit to unlock</div>
+            </div>
+            
+            <div className="locked-message">
+              <p>🔒 Submit your probe above to see the full collection from other readers of <em>The One and the 99</em>.</p>
+            </div>
+          </>
         )}
       </div>
 
@@ -203,6 +215,24 @@ export default function ProbePage() {
         .unlock-message p {
           margin: 0;
           color: #2c5aa0;
+        }
+
+        .submitted-state {
+          margin-bottom: 40px;
+        }
+
+        .submitted-message {
+          background: #f0f9f0;
+          border: 1px solid #4caf50;
+          padding: 20px;
+          border-radius: 8px;
+          text-align: center;
+        }
+
+        .submitted-message p {
+          margin: 0;
+          color: #2e7d32;
+          font-weight: 500;
         }
 
         .success {
@@ -321,6 +351,12 @@ export default function ProbePage() {
           border-left: 4px solid #e0e0e0;
         }
 
+        .probe.locked {
+          background: #f8f9fa;
+          border-left-color: #ddd;
+          opacity: 0.6;
+        }
+
         .probe-text {
           font-size: 16px;
           line-height: 1.6;
@@ -349,6 +385,17 @@ export default function ProbePage() {
           font-style: italic;
         }
 
+        .empty-probes {
+          text-align: center;
+          padding: 40px;
+          color: #666;
+          font-style: italic;
+        }
+
+        .empty-probes p {
+          margin: 0;
+        }
+
         @media (max-width: 600px) {
           .container {
             margin: 40px auto;
@@ -359,7 +406,7 @@ export default function ProbePage() {
             font-size: 1.8em;
           }
           
-          .unlock-message, .success, .error {
+          .unlock-message, .success, .error, .submitted-message {
             padding: 12px;
           }
         }
