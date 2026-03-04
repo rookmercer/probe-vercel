@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAllProbes, updateProbeStatus, deleteProbe, getStats } from '../../../../lib/simple-db'
+import { getAllProbes, updateProbeStatus, deleteProbe, getStats } from '../../../../lib/supabase'
 
 export async function GET(request: NextRequest) {
   try {
-    const allProbes = getAllProbes()
-    const stats = getStats()
+    const allProbes = await getAllProbes()
+    const stats = await getStats()
     
     return NextResponse.json({ probes: allProbes, stats })
   } catch (error) {
@@ -28,13 +28,7 @@ export async function POST(request: NextRequest) {
         )
       }
       
-      const updatedProbe = updateProbeStatus(id, status)
-      if (!updatedProbe) {
-        return NextResponse.json(
-          { error: 'Probe not found' },
-          { status: 404 }
-        )
-      }
+      const updatedProbe = await updateProbeStatus(Number(id), status)
       
       return NextResponse.json({ 
         success: true, 
@@ -51,13 +45,7 @@ export async function POST(request: NextRequest) {
         )
       }
       
-      const deleted = deleteProbe(id)
-      if (!deleted) {
-        return NextResponse.json(
-          { error: 'Probe not found' },
-          { status: 404 }
-        )
-      }
+      await deleteProbe(Number(id))
       
       return NextResponse.json({ 
         success: true, 

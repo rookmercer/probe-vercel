@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getApprovedProbes } from '../../../lib/simple-db'
+import { getApprovedProbes } from '../../../lib/supabase'
 
 export async function GET(request: NextRequest) {
   try {
-    const approvedProbes = getApprovedProbes()
+    const approvedProbes = await getApprovedProbes()
     
     return NextResponse.json(
       { 

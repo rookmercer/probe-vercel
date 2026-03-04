@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { addProbe } from '../../../lib/simple-db'
+import { addProbe } from '../../../lib/supabase'
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,8 +19,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Add to storage
-    const newProbe = addProbe(text, name || 'Anonymous')
+    // Add to Supabase database
+    const newProbe = await addProbe(text, name || 'Anonymous')
 
     return NextResponse.json({ 
       success: true, 
