@@ -1,7 +1,15 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { supabase, type Probe } from '../../lib/supabase'
+
+interface Probe {
+  id: string
+  text: string
+  name: string
+  status: 'pending' | 'approved' | 'rejected'
+  created_at: string
+  updated_at: string
+}
 
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -15,6 +23,7 @@ export default function AdminPage() {
     rejected: 0
   })
   const [loading, setLoading] = useState(false)
+  const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all')
 
   const ADMIN_PASSWORD = 'probe2026admin'
 
@@ -31,47 +40,44 @@ export default function AdminPage() {
 
   const loadProbes = async () => {
     setLoading(true)
-    
-    // Load pending probes
-    const { data: pendingData } = await supabase
-      .from('probes')
-      .select('*')
-      .eq('status', 'pending')
-      .order('created_at', { ascending: true })
-    
-    // Load stats
-    const { data: statsData } = await supabase
-      .from('probes')
-      .select('status')
-    
-    if (pendingData) {
-      setProbes(pendingData)
+    try {
+      const response = await fetch('/api/admin/probes')
+      if (response.ok) {
+        const data = await response.json()
+        setProbes(data.probes || [])
+        setStats(data.stats || { total: 0, pending: 0, approved: 0, rejected: 0 })
+      }
+    } catch (error) {
+      console.error('Error loading probes:', error)
+    } finally {
+      setLoading(false)
     }
-    
-    if (statsData) {
-      setStats({
-        total: statsData.length,
-        pending: statsData.filter(p => p.status === 'pending').length,
-        approved: statsData.filter(p => p.status === 'approved').length,
-        rejected: statsData.filter(p => p.status === 'rejected').length
-      })
-    }
-    
-    setLoading(false)
   }
 
-  const handleAction = async (id: number, action: 'approve' | 'reject' | 'delete') => {
-    if (action === 'delete') {
-      if (!confirm('Delete permanently?')) return
-      await supabase.from('probes').delete().eq('id', id)
-    } else {
-      await supabase
-        .from('probes')
-        .update({ status: action === 'approve' ? 'approved' : 'rejected' })
-        .eq('id', id)
+  const handleAction = async (id: string, action: string, status?: string) => {
+    try {
+      const response = await fetch('/api/admin/probes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action,
+          id,
+          status
+        })
+      })
+
+      if (response.ok) {
+        loadProbes() // Reload data
+      } else {
+        const result = await response.json()
+        alert(result.error || 'Action failed')
+      }
+    } catch (error) {
+      console.error('Error performing action:', error)
+      alert('Network error')
     }
-    
-    loadProbes() // Reload data
   }
 
   const logout = () => {
@@ -79,6 +85,11 @@ export default function AdminPage() {
     setPassword('')
     setProbes([])
   }
+
+  const filteredProbes = probes.filter(probe => {
+    if (filter === 'all') return true
+    return probe.status === filter
+  })
 
   if (!isAuthenticated) {
     return (
@@ -166,34 +177,105 @@ export default function AdminPage() {
         </div>
       </div>
       
-      <h2>Pending Submissions ({probes.length})</h2>
+      <div className="filters">
+        <button 
+          className={filter === 'all' ? 'active' : ''}
+          onClick={() => setFilter('all')}
+        >
+          All ({stats.total})
+        </button>
+        <button 
+          className={filter === 'pending' ? 'active' : ''}
+          onClick={() => setFilter('pending')}
+        >
+          Pending ({stats.pending})
+        </button>
+        <button 
+          className={filter === 'approved' ? 'active' : ''}
+          onClick={() => setFilter('approved')}
+        >
+          Approved ({stats.approved})
+        </button>
+        <button 
+          className={filter === 'rejected' ? 'active' : ''}
+          onClick={() => setFilter('rejected')}
+        >
+          Rejected ({stats.rejected})
+        </button>
+      </div>
+      
+      <h2>
+        {filter === 'all' ? 'All Probes' : 
+         filter === 'pending' ? 'Pending Review' :
+         filter === 'approved' ? 'Published Probes' :
+         'Rejected Probes'} 
+        ({filteredProbes.length})
+      </h2>
       
       {loading ? (
         <div className="loading">Loading...</div>
-      ) : probes.length === 0 ? (
-        <div className="empty">No pending submissions.</div>
+      ) : filteredProbes.length === 0 ? (
+        <div className="empty">No {filter === 'all' ? '' : filter} probes found.</div>
       ) : (
-        probes.map(probe => (
-          <div key={probe.id} className="probe-item">
+        filteredProbes.map(probe => (
+          <div key={probe.id} className={`probe-item status-${probe.status}`}>
+            <div className="probe-header">
+              <div className={`status-badge status-${probe.status}`}>
+                {probe.status.toUpperCase()}
+              </div>
+              <div className="probe-id">ID: {probe.id}</div>
+            </div>
+            
             <div className="probe-text">{probe.text}</div>
             <div className="probe-meta">
-              By: {probe.name} • {new Date(probe.created_at).toLocaleString()}
+              By: {probe.name} • 
+              Submitted: {new Date(probe.created_at).toLocaleString()} • 
+              Updated: {new Date(probe.updated_at).toLocaleString()}
             </div>
+            
             <div className="actions">
+              {probe.status !== 'approved' && (
+                <button 
+                  onClick={() => handleAction(probe.id, 'update_status', 'approved')}
+                  className="btn approve"
+                >
+                  ✓ Approve
+                </button>
+              )}
+              
+              {probe.status === 'approved' && (
+                <button 
+                  onClick={() => handleAction(probe.id, 'update_status', 'rejected')}
+                  className="btn unpublish"
+                >
+                  📤 Unpublish
+                </button>
+              )}
+              
+              {probe.status !== 'rejected' && (
+                <button 
+                  onClick={() => handleAction(probe.id, 'update_status', 'rejected')}
+                  className="btn reject"
+                >
+                  ✗ Reject
+                </button>
+              )}
+              
+              {probe.status !== 'pending' && (
+                <button 
+                  onClick={() => handleAction(probe.id, 'update_status', 'pending')}
+                  className="btn pending"
+                >
+                  ⏳ Mark Pending
+                </button>
+              )}
+              
               <button 
-                onClick={() => handleAction(probe.id, 'approve')}
-                className="btn approve"
-              >
-                ✓ Approve
-              </button>
-              <button 
-                onClick={() => handleAction(probe.id, 'reject')}
-                className="btn reject"
-              >
-                ✗ Reject
-              </button>
-              <button 
-                onClick={() => handleAction(probe.id, 'delete')}
+                onClick={() => {
+                  if (confirm(`Delete this probe permanently?\n\n"${probe.text.substring(0, 100)}..."`)) {
+                    handleAction(probe.id, 'delete')
+                  }
+                }}
                 className="btn delete"
               >
                 🗑 Delete
@@ -206,7 +288,7 @@ export default function AdminPage() {
       <style jsx>{`
         .admin-container {
           font-family: -apple-system, sans-serif;
-          max-width: 900px;
+          max-width: 1000px;
           margin: 40px auto;
           padding: 40px;
           line-height: 1.6;
@@ -234,7 +316,7 @@ export default function AdminPage() {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
           gap: 20px;
-          margin-bottom: 40px;
+          margin-bottom: 30px;
         }
         
         .stat {
@@ -255,12 +337,86 @@ export default function AdminPage() {
           font-size: 0.9em;
         }
         
+        .filters {
+          display: flex;
+          gap: 10px;
+          margin-bottom: 30px;
+          flex-wrap: wrap;
+        }
+        
+        .filters button {
+          padding: 8px 16px;
+          border: 2px solid #ddd;
+          background: #fff;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        
+        .filters button.active {
+          background: #000;
+          color: #fff;
+          border-color: #000;
+        }
+        
         .probe-item {
           background: #f9f9f9;
           border: 1px solid #ddd;
           border-radius: 8px;
           padding: 25px;
           margin-bottom: 20px;
+          border-left: 4px solid #ddd;
+        }
+        
+        .probe-item.status-pending {
+          border-left-color: #ff9800;
+          background: #fff9c4;
+        }
+        
+        .probe-item.status-approved {
+          border-left-color: #4caf50;
+          background: #e8f5e8;
+        }
+        
+        .probe-item.status-rejected {
+          border-left-color: #f44336;
+          background: #ffebee;
+        }
+        
+        .probe-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 15px;
+        }
+        
+        .status-badge {
+          padding: 4px 12px;
+          border-radius: 12px;
+          font-size: 12px;
+          font-weight: bold;
+          text-transform: uppercase;
+        }
+        
+        .status-badge.status-pending {
+          background: #ff9800;
+          color: white;
+        }
+        
+        .status-badge.status-approved {
+          background: #4caf50;
+          color: white;
+        }
+        
+        .status-badge.status-rejected {
+          background: #f44336;
+          color: white;
+        }
+        
+        .probe-id {
+          font-size: 12px;
+          color: #666;
+          font-family: monospace;
         }
         
         .probe-text {
@@ -274,27 +430,35 @@ export default function AdminPage() {
         
         .probe-meta {
           color: #666;
-          font-size: 14px;
+          font-size: 13px;
           margin-bottom: 15px;
         }
         
         .actions {
           display: flex;
-          gap: 10px;
+          gap: 8px;
           flex-wrap: wrap;
         }
         
         .btn {
-          padding: 10px 20px;
+          padding: 8px 16px;
           border: none;
           border-radius: 4px;
           cursor: pointer;
-          font-size: 14px;
+          font-size: 13px;
+          transition: all 0.2s;
         }
         
         .approve { background: #4caf50; color: white; }
         .reject { background: #f44336; color: white; }
         .delete { background: #ff9800; color: white; }
+        .pending { background: #2196f3; color: white; }
+        .unpublish { background: #9c27b0; color: white; }
+        
+        .btn:hover {
+          opacity: 0.8;
+          transform: translateY(-1px);
+        }
         
         .loading, .empty {
           text-align: center;

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { addProbe } from '../../../lib/database'
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,14 +19,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const submissionData = {
-      text: text.trim(),
-      name: (name || 'Anonymous').trim(),
-      submitted_at: new Date().toISOString(),
-      status: 'pending'
-    }
+    // Add to database
+    const newProbe = addProbe(text, name || 'Anonymous')
 
-    console.log('New probe submission:', submissionData)
+    console.log('New probe submission:', newProbe)
 
     // Send email notification to Luke
     try {
@@ -38,12 +35,13 @@ export async function POST(request: NextRequest) {
           <div style="background: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0;">
             <h3 style="margin-top: 0; color: #555;">Probe:</h3>
             <p style="font-size: 16px; line-height: 1.6; color: #333; font-style: italic;">
-              "${submissionData.text}"
+              "${newProbe.text}"
             </p>
           </div>
           
-          <p><strong>Submitter:</strong> ${submissionData.name}</p>
-          <p><strong>Submitted:</strong> ${new Date().toLocaleString()}</p>
+          <p><strong>Submitter:</strong> ${newProbe.name}</p>
+          <p><strong>Submitted:</strong> ${new Date(newProbe.created_at).toLocaleString()}</p>
+          <p><strong>Probe ID:</strong> ${newProbe.id}</p>
           
           <div style="margin: 30px 0; padding: 20px; background: #e8f5e8; border-radius: 8px;">
             <p style="margin: 0;">
@@ -61,27 +59,21 @@ export async function POST(request: NextRequest) {
         </div>
       `
 
-      // Try sending via fetch to a simple email service
-      // For now, we'll just log it since we need proper email service setup
-      console.log('Would send email to luke@lukeburgis.com:', {
-        subject: 'New Probe Submission - The One and the 99',
-        html: emailHTML
+      // Log email for now (will implement actual sending later)
+      console.log('Email notification prepared for luke@lukeburgis.com:', {
+        subject: `New Probe Submission - "${newProbe.text.substring(0, 50)}..."`,
+        probeId: newProbe.id
       })
 
-      // TODO: Set up actual email sending service (Resend, SendGrid, etc.)
-      
     } catch (emailError) {
       console.error('Email error:', emailError)
       // Don't fail the submission if email fails
     }
-
-    // TODO: Save to actual database (Supabase)
-    // For now, we'll simulate success
     
     return NextResponse.json({ 
       success: true, 
       message: 'Probe submitted successfully',
-      data: submissionData 
+      data: newProbe 
     })
   } catch (error) {
     console.error('Error processing submission:', error)
